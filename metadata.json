@@ -1,0 +1,6 @@
+{
+  "name": "Green Lab Soft - نظام إدارة مختبرات طبية",
+  "description": "نظام متكامل واحترافي لإدارة المختبرات الطبية، تسجيل المرضى، الفحوصات والنتائج، طباعة الباركود، الفواتير، الأجهزة المخبرية، شئون الموظفين، والتقارير المالية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
