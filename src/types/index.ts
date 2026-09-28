@@ -80,9 +80,31 @@ export interface LabTest {
   turnaroundHours: number; // e.g. 2 hours, 24 hours
   stockReagents: number; // quantity available
   minStockWarning: number;
+  expiryDate?: string; // YYYY-MM-DD تاريخ انتهاء صلاحية الكاشف / المادة
+  lotNumber?: string; // رقم التشغيلة / Lot #
   components: TestComponent[];
   isCulture?: boolean;
   isSemenCASA?: boolean;
+}
+
+export interface UserPermissions {
+  canRegisterVisits: boolean; // الاستقبال: تسجيل المرضى والزيارات وتحصيل المبالغ
+  canEnterResults: boolean;   // المختبر: إدخال قيم الفحوصات والنتائج
+  canVerifyResults: boolean;  // المختبر: اعتماد وتوقيع التقارير الطبية
+  canViewFinancials: boolean; // الإدارة: مراجعة الخزينة والرواتب والأرباح
+  canManageUsers: boolean;    // الإدارة: إضافة وتعديل المستخدمين والصلاحيات
+  canManageSettings: boolean; // الإدارة: تسعير التحاليل وإعدادات النظام
+}
+
+export interface AppUser {
+  id: string;
+  name: string;
+  username: string;
+  pinCode?: string;
+  role: 'admin' | 'lab_tech' | 'receptionist' | 'pathologist';
+  roleNameAr: string;
+  permissions: UserPermissions;
+  isActive: boolean;
 }
 
 export interface VisitTestItem {
@@ -270,6 +292,9 @@ export interface LabSettings {
   email: string;
   address: string;
   directorName: string;
+  directorTitle?: string; // المسمى الوظيفي للمعتمد (الافتراضي: المدير الفني للمختبر)
+  hideClinicalInterpretation?: boolean; // نمط المعمل فقط: إخفاء التفسير الاستشاري والنصائح الطبية
+  onlyPureResults?: boolean; // الاقتصار على النتائج المخبرية الصافية فقط
   reportTheme: 'emerald' | 'sapphire' | 'burgundy' | 'navy' | 'classic';
   reportFont: 'cairo' | 'tajawal' | 'system';
   logoPosition: 'right' | 'left' | 'center' | 'watermark';

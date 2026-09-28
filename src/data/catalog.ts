@@ -14,6 +14,8 @@ export const INITIAL_DETAILED_TESTS: LabTest[] = [
     turnaroundHours: 2,
     stockReagents: 85,
     minStockWarning: 20,
+    expiryDate: '2026-10-15',
+    lotNumber: 'CBC-LOT-9824',
     components: [
       {
         id: 'c-hb',
@@ -129,6 +131,8 @@ export const INITIAL_DETAILED_TESTS: LabTest[] = [
     turnaroundHours: 1,
     stockReagents: 120,
     minStockWarning: 25,
+    expiryDate: '2026-10-06',
+    lotNumber: 'GLU-LOT-4412',
     components: [
       {
         id: 'c-fbs-val',
@@ -154,6 +158,8 @@ export const INITIAL_DETAILED_TESTS: LabTest[] = [
     turnaroundHours: 2,
     stockReagents: 42,
     minStockWarning: 15,
+    expiryDate: '2026-11-20',
+    lotNumber: 'A1C-LOT-3392',
     components: [
       {
         id: 'c-hba1c-val',
@@ -179,6 +185,8 @@ export const INITIAL_DETAILED_TESTS: LabTest[] = [
     turnaroundHours: 3,
     stockReagents: 90,
     minStockWarning: 20,
+    expiryDate: '2027-02-15',
+    lotNumber: 'LIV-LOT-9011',
     components: [
       {
         id: 'c-sgot',
@@ -292,6 +300,8 @@ export const INITIAL_DETAILED_TESTS: LabTest[] = [
     turnaroundHours: 3,
     stockReagents: 75,
     minStockWarning: 15,
+    expiryDate: '2026-10-22',
+    lotNumber: 'CHOL-LOT-3011',
     components: [
       {
         id: 'c-chol',
@@ -344,6 +354,8 @@ export const INITIAL_DETAILED_TESTS: LabTest[] = [
     turnaroundHours: 3,
     stockReagents: 60,
     minStockWarning: 15,
+    expiryDate: '2026-09-20',
+    lotNumber: 'TSH-LOT-1102',
     components: [
       {
         id: 'c-tsh-val',
@@ -1019,6 +1031,8 @@ export function generateFull385Tests(): LabTest[] {
       turnaroundHours: 4,
       stockReagents: Math.floor(Math.random() * 80) + 15,
       minStockWarning: 15,
+      expiryDate: new Date(Date.now() + (((idx * 19) % 220) + 12) * 86400000).toISOString().split('T')[0],
+      lotNumber: `LOT-2026-${(idx + 100).toString()}`,
       components: [
         {
           id: `c-sub-${idx}-1`,
@@ -1056,6 +1070,8 @@ export function generateFull385Tests(): LabTest[] {
       turnaroundHours: 2 + (i % 8) * 2,
       stockReagents: 20 + (i % 60),
       minStockWarning: 15,
+      expiryDate: new Date(Date.now() + (((i * 23) % 250) + 15) * 86400000).toISOString().split('T')[0],
+      lotNumber: `LOT-${catObj.prefix}-${(100 + i).toString()}`,
       components: [
         {
           id: `c-${testId}-main`,

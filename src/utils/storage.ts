@@ -11,7 +11,9 @@ import {
   AuditLog,
   LabSettings,
   ShiftSettlementRecord,
+  AppUser,
 } from '../types';
+export type { AppUser };
 import { generateFull385Tests } from '../data/catalog';
 import {
   INITIAL_PATIENTS,
@@ -38,23 +40,83 @@ const KEYS = {
   EXPENSES: 'gls_expenses_v1',
   AUDIT_LOGS: 'gls_audit_logs_v1',
   SETTINGS: 'gls_settings_v1',
-  CURRENT_USER: 'gls_current_user_v1',
+  CURRENT_USER: 'gls_current_user_v2',
+  USERS: 'gls_users_v2',
   SETTLEMENTS: 'gls_shift_settlements_v1',
 };
 
-export interface AppUser {
-  id: string;
-  name: string;
-  role: 'admin' | 'lab_tech' | 'receptionist' | 'pathologist';
-  roleNameAr: string;
-}
+export const INITIAL_USERS: AppUser[] = [
+  {
+    id: 'usr-admin-1',
+    name: 'د. طارق محمود البدري',
+    username: 'admin',
+    pinCode: '1234',
+    role: 'admin',
+    roleNameAr: 'مدير النظام والمختبر (كل الصلاحيات)',
+    permissions: {
+      canRegisterVisits: true,
+      canEnterResults: true,
+      canVerifyResults: true,
+      canViewFinancials: true,
+      canManageUsers: true,
+      canManageSettings: true,
+    },
+    isActive: true,
+  },
+  {
+    id: 'usr-tech-1',
+    name: 'د. سلمى يوسف',
+    username: 'salma_lab',
+    pinCode: '2026',
+    role: 'lab_tech',
+    roleNameAr: 'طبيبة / أخصائية تحاليل (المختبر والنتائج)',
+    permissions: {
+      canRegisterVisits: false, // لا تسجل استقبال
+      canEnterResults: true,    // إدخال وتعديل نتائج
+      canVerifyResults: true,   // اعتماد رسمي للتقارير
+      canViewFinancials: false, // محجوب عنها المالية والرواتب
+      canManageUsers: false,    // محجوب عنها إدارة المستخدمين
+      canManageSettings: false, // محجوب عنها أسعار التحاليل
+    },
+    isActive: true,
+  },
+  {
+    id: 'usr-rec-1',
+    name: 'أحمد سعيد',
+    username: 'ahmed_rec',
+    pinCode: '5555',
+    role: 'receptionist',
+    roleNameAr: 'موظف استقبال وكاشير (بيانات ومرضى فقط)',
+    permissions: {
+      canRegisterVisits: true,  // تسجيل المرضى والزيارات وتحصيل المبالغ
+      canEnterResults: false,   // ممنوع من إدخال أو تعديل النتائج الطبية
+      canVerifyResults: false,  // ممنوع من اعتماد النتائج
+      canViewFinancials: false, // ممنوع من كشف الأرباح الكلية
+      canManageUsers: false,    // ممنوع من تعديل المستخدمين
+      canManageSettings: false, // ممنوع من تعديل الإعدادات
+    },
+    isActive: true,
+  },
+  {
+    id: 'usr-rec-2',
+    name: 'مروة حسن',
+    username: 'marwa_rec',
+    pinCode: '6666',
+    role: 'receptionist',
+    roleNameAr: 'موظفة استقبال وكاشير (وردية ثانية)',
+    permissions: {
+      canRegisterVisits: true,
+      canEnterResults: false,
+      canVerifyResults: false,
+      canViewFinancials: false,
+      canManageUsers: false,
+      canManageSettings: false,
+    },
+    isActive: true,
+  },
+];
 
-export const DEFAULT_USER: AppUser = {
-  id: 'emp-1',
-  name: 'د. طارق محمود البدري (المدير العام)',
-  role: 'admin',
-  roleNameAr: 'مدير النظام والمختبر',
-};
+export const DEFAULT_USER: AppUser = INITIAL_USERS[0];
 
 // Generic read with fallback
 function loadFromStorage<T>(key: string, fallback: T): T {
@@ -78,12 +140,18 @@ function saveToStorage<T>(key: string, data: T): void {
 }
 
 export const StorageService = {
-  // Current User
+  // Current User & Users Directory
   getCurrentUser(): AppUser {
     return loadFromStorage(KEYS.CURRENT_USER, DEFAULT_USER);
   },
   setCurrentUser(user: AppUser): void {
     saveToStorage(KEYS.CURRENT_USER, user);
+  },
+  getUsers(): AppUser[] {
+    return loadFromStorage<AppUser[]>(KEYS.USERS, INITIAL_USERS);
+  },
+  saveUsers(users: AppUser[]): void {
+    saveToStorage(KEYS.USERS, users);
   },
 
   // Patients

@@ -4,7 +4,6 @@ import {
   Search,
   CheckCircle,
   AlertTriangle,
-  Sparkles,
   History,
   Save,
   Printer,
@@ -14,15 +13,16 @@ import {
   Check,
   ChevronRight,
   ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
-import { Visit, LabTest, TestResultRecord, Patient, CultureResultData, SemenCASAResultData } from '../types';
-import { interpretLabResultsWithAI } from '../utils/ai';
+import { Visit, LabTest, TestResultRecord, Patient, CultureResultData, SemenCASAResultData, AppUser } from '../types';
 
 interface Props {
   visits: Visit[];
   tests: LabTest[];
   results: TestResultRecord[];
   patients: Patient[];
+  currentUser?: AppUser;
   initialVisitId?: string;
   onSaveResult: (result: TestResultRecord) => void;
   onOpenReport: (visit: Visit) => void;
@@ -33,10 +33,12 @@ export const ResultsEntryView: React.FC<Props> = ({
   tests,
   results,
   patients,
+  currentUser,
   initialVisitId,
   onSaveResult,
   onOpenReport,
 }) => {
+  const canEdit = currentUser ? currentUser.permissions.canEnterResults : true;
   const [selectedVisitId, setSelectedVisitId] = useState<string>(initialVisitId || visits[0]?.id || '');
   const [visitSearchQuery, setVisitSearchQuery] = useState('');
 
@@ -46,7 +48,6 @@ export const ResultsEntryView: React.FC<Props> = ({
     }
   }, [initialVisitId]);
   const [selectedTestId, setSelectedTestId] = useState<string>('');
-  const [aiLoading, setAiLoading] = useState(false);
   const [deviceSyncNotice, setDeviceSyncNotice] = useState<string | null>(null);
 
   const filteredVisits = visits.filter((v) => {
@@ -151,38 +152,6 @@ export const ResultsEntryView: React.FC<Props> = ({
         flag,
       },
     }));
-  };
-
-  // AI Interpretation trigger
-  const handleGenerateAIInterpretation = async () => {
-    if (!activeTest || !activeVisit) return;
-    setAiLoading(true);
-
-    const formattedResults = (activeTest.components || []).map((c) => {
-      const val = valuesState[c.id]?.value ?? '-';
-      const flag = valuesState[c.id]?.flag ?? 'normal';
-      return {
-        name: c.nameAr,
-        value: val,
-        unit: c.unit,
-        flag,
-        normalRange: c.normalRangeText,
-      };
-    });
-
-    const res = await interpretLabResultsWithAI(
-      {
-        name: activeVisit.patientName,
-        age: activeVisit.patientAge,
-        gender: activeVisit.patientGender === 'female' ? 'أنثى' : 'ذكر',
-      },
-      activeTest.nameAr,
-      formattedResults
-    );
-
-    const combinedNotes = `${res.summary}\n${res.abnormalFindings.join(' · ')}\nالتوصيات: ${res.clinicalRecommendations.join(' - ')}`;
-    setClinicalComment(combinedNotes);
-    setAiLoading(false);
   };
 
   // Analyzer / Device Link Simulation
@@ -423,16 +392,32 @@ export const ResultsEntryView: React.FC<Props> = ({
 
         {/* Center / Main Area: Result Inputs */}
         <div className="lg:col-span-3 space-y-5">
+          {/* Receptionist Permission Restriction Banner */}
+          {!canEdit && (
+            <div className="p-4 bg-amber-50 border-2 border-amber-400 rounded-xl flex items-center gap-3 text-amber-950 text-xs">
+              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <span className="font-bold text-sm block">صلاحية مقيدة: حساب استقبال وكاشير ({currentUser?.name})</span>
+                <span className="text-slate-600 text-[11px]">
+                  صلاحيتك الحالية تتيح تسجيل المرضى وتحصيل النقدية. إدخال وتعديل نتائج التحاليل والتقارير الطبية مقفل ومخصص لأطباء وفنيي المختبر.
+                </span>
+              </div>
+            </div>
+          )}
+
           {activeTest && activeVisit ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-6 space-y-6">
               {/* Header Box */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-black text-slate-900">{activeTest.nameAr}</h3>
-                    <span className="font-mono text-xs text-slate-500 font-semibold">({activeTest.code})</span>
+                    <h3 className="text-lg font-black text-slate-900 font-sans">{activeTest.nameEn}</h3>
+                    <span className="text-xs text-slate-500 font-medium">({activeTest.nameAr})</span>
+                    <span className="font-mono text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-bold border border-emerald-200">
+                      {activeTest.code}
+                    </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-1">
                     المريض: <strong className="text-slate-900">{activeVisit.patientName}</strong> · العمر:{' '}
                     <strong>{activeVisit.patientAge}</strong> · النوع:{' '}
                     <strong>{activeVisit.patientGender === 'female' ? 'أنثى' : 'ذكر'}</strong>
@@ -443,20 +428,12 @@ export const ResultsEntryView: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={handleSimulateDeviceData}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-semibold rounded-lg border border-blue-200 transition-colors"
+                    disabled={!canEdit}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 text-blue-800 text-xs font-semibold rounded-lg border border-blue-200 transition-colors"
                     title="سحب القراءات تلقائياً من جهاز المختبر"
                   >
                     <Cpu className="w-3.5 h-3.5" />
                     <span>سحب آلي من الجهاز</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGenerateAIInterpretation}
-                    disabled={aiLoading}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-semibold rounded-lg border border-purple-200 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                    <span>{aiLoading ? 'جاري التحليل...' : 'تفسير ذكي AI'}</span>
                   </button>
                 </div>
               </div>
@@ -476,11 +453,11 @@ export const ResultsEntryView: React.FC<Props> = ({
                     <table className="w-full text-right text-xs">
                       <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
                         <tr>
-                          <th className="py-2.5 px-3">المؤشر / الفحص</th>
-                          <th className="py-2.5 px-3 text-center">النتيجة الحالية</th>
-                          <th className="py-2.5 px-3 text-center">الوحدة</th>
-                          <th className="py-2.5 px-3 text-left">المدى الطبيعي المعتمد</th>
-                          <th className="py-2.5 px-3 text-center">مؤشر الحالة</th>
+                          <th className="py-2.5 px-3">الفحص والمؤشر (Parameter)</th>
+                          <th className="py-2.5 px-3 text-center">النتيجة (Result)</th>
+                          <th className="py-2.5 px-3 text-center">الوحدة (Unit)</th>
+                          <th className="py-2.5 px-3 text-left">المدى الطبيعي (Reference Range)</th>
+                          <th className="py-2.5 px-3 text-center">الحالة</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -497,17 +474,24 @@ export const ResultsEntryView: React.FC<Props> = ({
                               }`}
                             >
                               <td className="py-3 px-3">
-                                <span className="font-bold text-slate-900 block">{comp.nameAr}</span>
-                                <span className="text-[10px] font-mono text-slate-400">{comp.nameEn}</span>
+                                <span className="font-bold text-slate-900 block font-sans text-xs">
+                                  {comp.nameEn}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  {comp.nameAr}
+                                </span>
                               </td>
                               <td className="py-3 px-3 text-center">
                                 <input
                                   type="text"
+                                  disabled={!canEdit}
                                   value={item.value}
                                   onChange={(e) => handleComponentChange(comp.id, e.target.value, comp)}
                                   placeholder="0.0"
                                   className={`w-28 px-3 py-1.5 border-2 rounded-lg text-center font-mono font-bold text-sm focus:outline-hidden ${
-                                    isHigh
+                                    !canEdit
+                                      ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                                      : isHigh
                                       ? 'border-rose-500 bg-white text-rose-700 ring-2 ring-rose-200'
                                       : isLow
                                       ? 'border-amber-500 bg-white text-amber-700 ring-2 ring-amber-200'
@@ -516,27 +500,27 @@ export const ResultsEntryView: React.FC<Props> = ({
                                   dir="ltr"
                                 />
                               </td>
-                              <td className="py-3 px-3 text-center font-mono text-slate-500">
+                              <td className="py-3 px-3 text-center font-mono text-slate-600 font-bold" dir="ltr">
                                 {comp.unit}
                               </td>
-                              <td className="py-3 px-3 text-left font-mono text-xs text-slate-600" dir="ltr">
+                              <td className="py-3 px-3 text-left font-mono text-xs text-slate-700 font-medium" dir="ltr">
                                 {comp.normalRangeText}
                               </td>
                               <td className="py-3 px-3 text-center">
                                 {isHigh ? (
                                   <span className="px-2 py-0.5 text-[10px] font-bold text-rose-700 bg-rose-100 rounded inline-flex items-center gap-1">
-                                    ▲ مرتفع
+                                    ▲ High
                                   </span>
                                 ) : isLow ? (
                                   <span className="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 rounded inline-flex items-center gap-1">
-                                    ▼ منخفض
+                                    ▼ Low
                                   </span>
                                 ) : item.value ? (
                                   <span className="px-2 py-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-100 rounded">
-                                    طبيعي
+                                    Normal
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 text-[10px]">بانتظار الإدخال</span>
+                                  <span className="text-slate-400 text-[10px]">-</span>
                                 )}
                               </td>
                             </tr>
@@ -695,23 +679,6 @@ export const ResultsEntryView: React.FC<Props> = ({
                 </div>
               )}
 
-              {/* Clinical Comment Field */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700">
-                    ملاحظات وتفسير استشاري التحاليل السريرية:
-                  </label>
-                  <span className="text-[10px] text-slate-400">ستطبع في أسفل التقرير الرسمي</span>
-                </div>
-                <textarea
-                  rows={3}
-                  value={clinicalComment}
-                  onChange={(e) => setClinicalComment(e.target.value)}
-                  placeholder="اكتب التفسير السريري أو استخدم زر 'تفسير ذكي AI' للتوليد التلقائي المعتمد..."
-                  className="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 font-sans"
-                />
-              </div>
-
               {/* Bottom Action Buttons */}
               <div className="border-t border-slate-200 pt-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-xs text-slate-500 flex items-center gap-2">
@@ -726,16 +693,18 @@ export const ResultsEntryView: React.FC<Props> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    disabled={!canEdit}
                     onClick={() => handleSaveResult(false)}
-                    className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
+                    className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5"
                   >
                     <Save className="w-3.5 h-3.5" />
                     حفظ كمسودة
                   </button>
                   <button
                     type="button"
+                    disabled={!canEdit}
                     onClick={() => handleSaveResult(true)}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
                   >
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                     اعتماد النتيجة
@@ -743,13 +712,13 @@ export const ResultsEntryView: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      handleSaveResult(true);
+                      if (canEdit) handleSaveResult(true);
                       onOpenReport(activeVisit);
                     }}
                     className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2 shadow-md ring-2 ring-emerald-500/20"
                   >
                     <Printer className="w-4 h-4" />
-                    <span>حفظ وطباعة تقرير A4 للعميل فوراً</span>
+                    <span>طباعة تقرير A4 للعميل</span>
                   </button>
                 </div>
               </div>

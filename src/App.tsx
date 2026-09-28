@@ -11,7 +11,6 @@ import { DoctorsContractsView } from './views/DoctorsContractsView';
 import { DeviceIntegrationView } from './views/DeviceIntegrationView';
 import { FinancialsView } from './views/FinancialsView';
 import { StaffAttendanceView } from './views/StaffAttendanceView';
-import { AiAssistantView } from './views/AiAssistantView';
 import { SettingsBackupView } from './views/SettingsBackupView';
 
 // Modals
@@ -19,6 +18,10 @@ import { BarcodeModal } from './components/BarcodeModal';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { InvoicePrintModal } from './components/InvoicePrintModal';
 import { MedicalReportModal } from './components/MedicalReportModal';
+import { UserManagementModal } from './components/UserManagementModal';
+import { OfflineLanGuideModal } from './components/OfflineLanGuideModal';
+import { ShieldAlert } from 'lucide-react';
+import { broadcastLocalSync, subscribeToLocalSync } from './utils/offlineSync';
 
 // Storage and Types
 import { StorageService, AppUser, DEFAULT_USER } from './utils/storage';
@@ -53,6 +56,13 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<LabSettings>(StorageService.getSettings());
   const [currentUser, setCurrentUser] = useState<AppUser>(DEFAULT_USER);
+  const [users, setUsers] = useState<AppUser[]>(() => StorageService.getUsers());
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('gls_sidebar_collapsed') === 'true';
+  });
+  const [uiScale, setUiScale] = useState<'compact' | 'standard' | 'large'>(() => {
+    return (localStorage.getItem('gls_ui_scale') as any) || 'standard';
+  });
 
   // Active Modals
   const [barcodeModalVisit, setBarcodeModalVisit] = useState<Visit | null>(null);
@@ -60,9 +70,23 @@ export default function App() {
   const [invoiceModalVisit, setInvoiceModalVisit] = useState<Visit | null>(null);
   const [reportModalVisit, setReportModalVisit] = useState<Visit | null>(null);
   const [userSwitcherOpen, setUserSwitcherOpen] = useState(false);
+  const [offlineModalOpen, setOfflineModalOpen] = useState(false);
   const [selectedVisitIdForResults, setSelectedVisitIdForResults] = useState<string>('');
 
-  // Load Initial Data on Mount
+  const handleToggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('gls_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
+
+  const handleChangeUiScale = (scale: 'compact' | 'standard' | 'large') => {
+    setUiScale(scale);
+    localStorage.setItem('gls_ui_scale', scale);
+  };
+
+  // Load Initial Data on Mount & Subscribe to LAN Real-time Broadcast
   useEffect(() => {
     setPatients(StorageService.getPatients());
     setDoctors(StorageService.getDoctors());
@@ -76,6 +100,20 @@ export default function App() {
     setAuditLogs(StorageService.getAuditLogs());
     setSettings(StorageService.getSettings());
     setCurrentUser(StorageService.getCurrentUser());
+    setUsers(StorageService.getUsers());
+
+    // Live 0ms Multi-Device & Multi-Tab Broadcast Synchronization
+    const unsubscribeSync = subscribeToLocalSync(() => {
+      setPatients(StorageService.getPatients());
+      setVisits(StorageService.getVisits());
+      setResults(StorageService.getResults());
+      setExpenses(StorageService.getExpenses());
+      setTests(StorageService.getTests());
+    });
+
+    return () => {
+      unsubscribeSync();
+    };
   }, []);
 
   // CRUD Handlers with Audit Logging
@@ -297,6 +335,7 @@ export default function App() {
               tests={tests}
               results={results}
               patients={patients}
+              currentUser={currentUser}
               initialVisitId={selectedVisitIdForResults}
               onSaveResult={handleSaveResult}
               onOpenReport={(v) => setReportModalVisit(v)}
@@ -344,16 +383,36 @@ export default function App() {
 
           {activeView === 'devices' && <DeviceIntegrationView />}
 
-          {activeView === 'financials' && (
-            <FinancialsView
-              visits={visits}
-              expenses={expenses}
-              employees={employees}
-              attendance={attendance}
-              onSaveExpense={handleSaveExpense}
-              onDeleteExpense={handleDeleteExpense}
-            />
-          )}
+          {activeView === 'financials' &&
+            (currentUser.permissions.canViewFinancials ? (
+              <FinancialsView
+                visits={visits}
+                expenses={expenses}
+                employees={employees}
+                attendance={attendance}
+                onSaveExpense={handleSaveExpense}
+                onDeleteExpense={handleDeleteExpense}
+              />
+            ) : (
+              <div className="p-12 bg-white border border-slate-200 rounded-2xl text-center space-y-4 max-w-lg mx-auto my-8 shadow-xs">
+                <div className="w-14 h-14 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
+                  <ShieldAlert className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-base">صلاحية مقيدة: حسابك الحالي ({currentUser.name})</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    الاطلاع على تقارير الخزينة، الأرباح، ورواتب الموظفين مقتصر على مدير المختبر.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUserSwitcherOpen(true)}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+                >
+                  التبديل إلى حساب المدير
+                </button>
+              </div>
+            ))}
 
           {activeView === 'staff' && (
             <StaffAttendanceView
@@ -364,7 +423,26 @@ export default function App() {
             />
           )}
 
-          {activeView === 'ai' && <AiAssistantView />}
+          {activeView === 'users' && (
+            <div className="p-12 bg-white border border-slate-200 rounded-2xl text-center space-y-4 max-w-lg mx-auto my-8 shadow-xs">
+              <div className="w-14 h-14 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-base">إدارة المستخدمين والصلاحيات</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  يمكنك إدارة مستخدمي الاستقبال والمختبر وتحديد صلاحية كل مستخدم بنقرة زر
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUserSwitcherOpen(true)}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+              >
+                فتح نافذة إدارة المستخدمين والتبديل
+              </button>
+            </div>
+          )}
 
           {activeView === 'settings' && (
             <SettingsBackupView
@@ -435,51 +513,21 @@ export default function App() {
         />
       )}
 
-      {/* 5. User Profile Switcher */}
-      {userSwitcherOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-5 text-right space-y-4">
-            <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">
-              تبديل حساب المستخدم النشط
-            </h3>
-            <div className="space-y-2">
-              {employees.map((emp) => (
-                <div
-                  key={emp.id}
-                  onClick={() => {
-                    const usr: AppUser = {
-                      id: emp.id,
-                      name: emp.name,
-                      role: emp.role,
-                      roleNameAr: emp.roleTitleAr,
-                    };
-                    setCurrentUser(usr);
-                    StorageService.setCurrentUser(usr);
-                    setUserSwitcherOpen(false);
-                  }}
-                  className={`p-2.5 rounded-lg border cursor-pointer text-xs flex justify-between items-center transition-colors ${
-                    currentUser.id === emp.id
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-950 font-bold'
-                      : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <div>
-                    <div className="font-semibold text-slate-900">{emp.name}</div>
-                    <div className="text-[10px] text-slate-500">{emp.roleTitleAr}</div>
-                  </div>
-                  <span className="font-mono text-[10px] text-emerald-700">{emp.code}</span>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setUserSwitcherOpen(false)}
-              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold"
-            >
-              إغلاق
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 5. User Management & Switcher Modal */}
+      <UserManagementModal
+        isOpen={userSwitcherOpen}
+        onClose={() => setUserSwitcherOpen(false)}
+        currentUser={currentUser}
+        users={users}
+        onSelectUser={(u) => {
+          setCurrentUser(u);
+          StorageService.setCurrentUser(u);
+        }}
+        onSaveUsers={(uList) => {
+          setUsers(uList);
+          StorageService.saveUsers(uList);
+        }}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Users,
   Stethoscope,
@@ -24,6 +24,11 @@ import {
   Printer,
   ChevronLeft,
   ChevronRight,
+  BellRing,
+  PackageX,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Patient, Doctor, Visit, LabTest, Expense, ShiftSettlementRecord, LabSettings } from '../types';
 import { ShiftSettlementModal } from '../components/ShiftSettlementModal';
@@ -163,6 +168,28 @@ export const DashboardView: React.FC<Props> = ({
   // Low stock reagents
   const lowStockTests = tests.filter((t) => t.stockReagents <= t.minStockWarning);
 
+  // Reagents Expiry Alert System (نظام تنبيهات المواد المخبرية وقرب انتهاء الصلاحية)
+  const [showExpiryDetails, setShowExpiryDetails] = useState<boolean>(true);
+  const todayMs = new Date('2026-09-28').getTime();
+
+  const expiringReagents = useMemo(() => {
+    return tests
+      .filter((t) => t.expiryDate && (t.type === 'lab' || !t.type))
+      .map((t) => {
+        const expMs = new Date(t.expiryDate!).getTime();
+        const diffDays = Math.ceil((expMs - todayMs) / (1000 * 60 * 60 * 24));
+        return {
+          ...t,
+          daysLeft: diffDays,
+          isExpired: diffDays <= 0,
+          isCritical: diffDays > 0 && diffDays <= 15,
+          isWarning: diffDays > 15 && diffDays <= 30,
+        };
+      })
+      .filter((item) => item.daysLeft <= 30) // Within 30 days or expired
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [tests, todayMs]);
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Quick Actions */}
@@ -210,6 +237,116 @@ export const DashboardView: React.FC<Props> = ({
           </button>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* Visual Reagent Expiry & Quality Alerts Banner (نظام تنبيهات المواد المخبرية) */}
+      {/* ========================================================================= */}
+      {expiringReagents.length > 0 && (
+        <div className="bg-white rounded-2xl border-2 border-rose-400 shadow-sm overflow-hidden animate-in fade-in">
+          <div className="bg-gradient-to-r from-rose-500 via-rose-600 to-amber-600 text-white px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-xs">
+                <BellRing className="w-5 h-5 text-white animate-bounce" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm flex items-center gap-2">
+                  <span>تنبيه مخبري عاجل: اقتراب أو انتهاء صلاحية كواشف ومواد مسجلة بالنظام</span>
+                  <span className="bg-white text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    {expiringReagents.length} تنبيهات نشطة
+                  </span>
+                </h4>
+                <p className="text-xs text-rose-100 mt-0.5">
+                  يرجى فحص تشغيلات المواد والكواشف التالية لضمان دقة النتائج وعدم استخدام كاشف منتهي
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowExpiryDetails(!showExpiryDetails)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-colors"
+            >
+              <span>{showExpiryDetails ? 'طي التنبيهات' : 'عرض التفاصيل والتشغيلات'}</span>
+              {showExpiryDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {showExpiryDetails && (
+            <div className="p-4 sm:p-5 bg-rose-50/30 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {expiringReagents.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-3.5 rounded-xl border transition-all ${
+                      item.isExpired
+                        ? 'bg-rose-100/70 border-rose-500 text-rose-950'
+                        : item.isCritical
+                        ? 'bg-amber-50/80 border-amber-400 text-amber-950'
+                        : 'bg-white border-slate-200 text-slate-900'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="truncate">
+                        <div className="font-black text-xs truncate">
+                          {item.nameEn}
+                        </div>
+                        <span className="text-[11px] text-slate-600 block mt-0.5 truncate">
+                          {item.nameAr}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                          item.isExpired
+                            ? 'bg-rose-600 text-white'
+                            : item.isCritical
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-amber-100 text-amber-900'
+                        }`}
+                      >
+                        {item.isExpired
+                          ? 'منتهي الصلاحية ⛔'
+                          : item.daysLeft === 1
+                          ? 'متبقي يوم واحد ⚠️'
+                          : `متبقي ${item.daysLeft} يوم ⚠️`}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-200/80 grid grid-cols-2 gap-2 text-[11px]">
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">رقم التشغيلة (Lot #):</span>
+                        <strong className="font-mono font-bold text-slate-800">{item.lotNumber || 'LOT-2026'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">تاريخ الانتهاء:</span>
+                        <strong className="font-mono font-bold text-slate-800">{item.expiryDate}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">الرصيد المتبقي:</span>
+                        <strong className="font-mono font-bold text-slate-800">{item.stockReagents} اختبار</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[10px]">الكود المخبري:</span>
+                        <strong className="font-mono font-bold text-slate-800">{item.code}</strong>
+                      </div>
+                    </div>
+
+                    <div className="mt-2.5 pt-2 flex items-center justify-between border-t border-slate-100">
+                      <span className="text-[10px] text-slate-500">{item.category}</span>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate('tests')}
+                        className="text-[11px] font-bold text-emerald-800 hover:text-emerald-950 underline"
+                      >
+                        إدارة المخزون والتوريد ←
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 1. تقفيلة اليومية والوردية ومتابعة الأشعة والتحاليل يوم بيوم (Day-by-Day Hub) */}

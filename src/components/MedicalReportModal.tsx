@@ -30,6 +30,34 @@ interface Props {
   settings: LabSettings;
 }
 
+const PARAM_NAMES_MAP: Record<string, { en: string; ar: string }> = {
+  'c-hb': { en: 'Hemoglobin (Hb)', ar: 'الهيموجلوبين' },
+  'c-rbc': { en: 'RBCs Count', ar: 'كرات الدم الحمراء' },
+  'c-hct': { en: 'Hematocrit (PCV)', ar: 'الهيماتوكريت' },
+  'c-mcv': { en: 'MCV', ar: 'متوسط حجم الكرية' },
+  'c-mch': { en: 'MCH', ar: 'متوسط هيموجلوبين الكرية' },
+  'c-mchc': { en: 'MCHC', ar: 'تركيز هيموجلوبين الكرية' },
+  'c-wbc': { en: 'Total Leucocyte Count (TLC / WBC)', ar: 'كرات الدم البيضاء الكلية' },
+  'c-neut': { en: 'Neutrophils', ar: 'الخلايا المتعادلة' },
+  'c-lymph': { en: 'Lymphocytes', ar: 'الخلايا الليمفاوية' },
+  'c-plt': { en: 'Platelets Count', ar: 'الصفائح الدموية' },
+  'c-fbs-val': { en: 'Fasting Blood Glucose (FBS)', ar: 'سكر الدم صائم' },
+  'c-hba1c-val': { en: 'Glycated Hemoglobin (HbA1c)', ar: 'السكر التراكمي' },
+  'c-sgot': { en: 'AST (SGOT)', ar: 'إنزيم الكبد AST' },
+  'c-sgpt': { en: 'ALT (SGPT)', ar: 'إنزيم الكبد ALT' },
+  'c-tbili': { en: 'Total Bilirubin', ar: 'الصفراء الكلية' },
+  'c-dbili': { en: 'Direct Bilirubin', ar: 'الصفراء المباشرة' },
+  'c-alb': { en: 'Serum Albumin', ar: 'الألبومين' },
+  'c-creat': { en: 'Serum Creatinine', ar: 'الكرياتينين' },
+  'c-urea': { en: 'Blood Urea', ar: 'البولينا' },
+  'c-uric': { en: 'Serum Uric Acid', ar: 'حمض البوليك' },
+  'c-chol': { en: 'Total Cholesterol', ar: 'الكوليسترول الكلي' },
+  'c-trig': { en: 'Triglycerides', ar: 'الدهون الثلاثية' },
+  'c-hdl': { en: 'HDL Cholesterol', ar: 'الكوليسترول النافع' },
+  'c-ldl': { en: 'LDL Cholesterol', ar: 'الكوليسترول الضار' },
+  'c-tsh-val': { en: 'TSH Level', ar: 'هرمون الغدة الدرقية' },
+};
+
 export const MedicalReportModal: React.FC<Props> = ({
   isOpen,
   onClose,
@@ -48,6 +76,7 @@ export const MedicalReportModal: React.FC<Props> = ({
   const [patientInfoLayout, setPatientInfoLayout] = useState<LabSettings['patientInfoLayout']>(settings.patientInfoLayout || 'cards_grid');
   const [fontSize, setFontSize] = useState<LabSettings['fontSize']>(settings.fontSize || 'standard');
   const [showWatermark, setShowWatermark] = useState<boolean>(settings.showWatermark ?? true);
+  const [showArabicInReport, setShowArabicInReport] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
@@ -275,6 +304,18 @@ export const MedicalReportModal: React.FC<Props> = ({
                     />
                     <span>الختم المائي</span>
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowArabicInReport(!showArabicInReport)}
+                    className={`px-3 py-1 rounded-lg font-bold text-xs border transition-colors flex items-center gap-1.5 ${
+                      showArabicInReport
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                    }`}
+                    title="التبديل بين التقرير الطبي الإنجليزي بالكامل أو إظهار ترجمة عربية للفحوصات"
+                  >
+                    <span>{showArabicInReport ? '✓ إظهار الترجمة العربية للفحوصات' : 'إنجليزي بالكامل (English Only)'}</span>
+                  </button>
                 </div>
               </div>
 
@@ -555,14 +596,16 @@ export const MedicalReportModal: React.FC<Props> = ({
                       results.map((res) => (
                         <div key={res.id} className="space-y-2.5">
                           {/* Test Title Header */}
-                          <div className="flex items-center justify-between border-b-2 border-slate-300 pb-1.5">
+                          <div className="flex items-center justify-between border-b-2 border-slate-300 pb-1.5" dir="ltr">
                             <div className="flex items-center gap-2">
                               <h3 className={fontClasses.heading}>
-                                <span className={themes.primary}>{res.testNameAr}</span>
+                                <span className={themes.primary}>{res.testNameEn || res.testNameAr}</span>
                               </h3>
-                              <span className="font-mono text-xs text-slate-500 font-normal">
-                                ({res.testNameEn})
-                              </span>
+                              {showArabicInReport && (
+                                <span className="text-xs text-slate-500 font-medium" dir="rtl">
+                                  ({res.testNameAr})
+                                </span>
+                              )}
                             </div>
                             <span className="text-xs text-slate-400 font-mono font-semibold">
                               {res.category}
@@ -571,14 +614,14 @@ export const MedicalReportModal: React.FC<Props> = ({
 
                           {/* Components Table */}
                           {Object.keys(res.values).length > 0 && (
-                            <table className={`w-full text-right ${fontClasses.table} border border-slate-200 rounded-lg overflow-hidden`}>
+                            <table className={`w-full ${fontClasses.table} border border-slate-200 rounded-lg overflow-hidden`}>
                               <thead className={`${themes.tableHeader} font-bold text-[11px]`}>
-                                <tr>
-                                  <th className="py-2.5 px-3">الفحص والمؤشر السريري (Parameter)</th>
-                                  <th className="py-2.5 px-3 text-center">النتيجة (Result)</th>
-                                  <th className="py-2.5 px-3 text-center">الوحدة (Unit)</th>
-                                  <th className="py-2.5 px-3 text-left">المدى الطبيعي المعتمد (Reference Range)</th>
-                                  <th className="py-2.5 px-3 text-center">التقييم</th>
+                                <tr dir="ltr">
+                                  <th className="py-2.5 px-3 text-left">Parameter</th>
+                                  <th className="py-2.5 px-3 text-center">Result</th>
+                                  <th className="py-2.5 px-3 text-center">Unit</th>
+                                  <th className="py-2.5 px-3 text-left">Reference Range</th>
+                                  <th className="py-2.5 px-3 text-center">Flag</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-200">
@@ -586,16 +629,28 @@ export const MedicalReportModal: React.FC<Props> = ({
                                   const isHigh = item.flag === 'high';
                                   const isLow = item.flag === 'low';
                                   const isCritical = item.flag === 'critical';
+                                  const meta = PARAM_NAMES_MAP[cId] || {
+                                    en: cId.replace('c-', '').replace('-', ' ').toUpperCase(),
+                                    ar: '',
+                                  };
 
                                   return (
                                     <tr
                                       key={cId}
+                                      dir="ltr"
                                       className={`transition-colors ${
                                         rowIdx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'
                                       } ${isHigh || isLow || isCritical ? 'bg-rose-50/40' : ''}`}
                                     >
-                                      <td className="py-2.5 px-3 font-semibold text-slate-900">
-                                        {cId.replace('c-', '').replace('-', ' ').toUpperCase()}
+                                      <td className="py-2.5 px-3 text-left">
+                                        <span className="font-bold text-slate-900 block font-sans text-xs">
+                                          {meta.en}
+                                        </span>
+                                        {showArabicInReport && meta.ar && (
+                                          <span className="text-[10px] text-slate-500 font-medium block" dir="rtl">
+                                            {meta.ar}
+                                          </span>
+                                        )}
                                       </td>
                                       <td
                                         className={`py-2.5 px-3 text-center tabular-nums ${fontClasses.val} ${
@@ -607,27 +662,27 @@ export const MedicalReportModal: React.FC<Props> = ({
                                         }`}
                                       >
                                         {item.value}
-                                        {isHigh && <span className="mr-1 text-xs">▲</span>}
-                                        {isLow && <span className="mr-1 text-xs">▼</span>}
+                                        {isHigh && <span className="ml-1 text-xs text-rose-600">▲</span>}
+                                        {isLow && <span className="ml-1 text-xs text-amber-600">▼</span>}
                                       </td>
-                                      <td className="py-2.5 px-3 text-center font-mono text-slate-500">
+                                      <td className="py-2.5 px-3 text-center font-mono text-slate-600 font-bold" dir="ltr">
                                         {item.normalRangeText.split(' ')[1] || '-'}
                                       </td>
-                                      <td className="py-2.5 px-3 text-left font-mono text-slate-700 text-xs font-medium" dir="ltr">
+                                      <td className="py-2.5 px-3 text-left font-mono text-slate-700 text-xs font-semibold" dir="ltr">
                                         {item.normalRangeText}
                                       </td>
                                       <td className="py-2.5 px-3 text-center">
                                         {isHigh ? (
                                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${themes.badgeHigh}`}>
-                                            مرتفع (High)
+                                            High
                                           </span>
                                         ) : isLow ? (
                                           <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${themes.badgeLow}`}>
-                                            منخفض (Low)
+                                            Low
                                           </span>
                                         ) : (
                                           <span className={`px-2 py-0.5 text-[10px] font-semibold rounded border ${themes.badgeNormal}`}>
-                                            طبيعي (Normal)
+                                            Normal
                                           </span>
                                         )}
                                       </td>
@@ -687,19 +742,6 @@ export const MedicalReportModal: React.FC<Props> = ({
                                 <div>الأشكال الطبيعية: <strong className="font-mono">{res.semenData.normalMorphology}%</strong></div>
                                 <div>الحجم: <strong className="font-mono">{res.semenData.volume} ml</strong></div>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Clinical Comments */}
-                          {res.clinicalComment && (
-                            <div className="bg-emerald-50/60 border border-emerald-200 p-3 rounded-xl text-xs text-slate-800 mt-2">
-                              <div className="font-bold text-emerald-950 flex items-center gap-1.5 mb-1">
-                                <Stethoscope className="w-3.5 h-3.5 text-emerald-700" />
-                                <span>تقرير وتفسير استشاري الباثولوجيا الإكلينيكية:</span>
-                              </div>
-                              <p className="leading-relaxed whitespace-pre-line text-slate-700">
-                                {res.clinicalComment}
-                              </p>
                             </div>
                           )}
                         </div>

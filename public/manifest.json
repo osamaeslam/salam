@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Green Lab Soft - نظام المختبرات الطبية والديسك توب أوفلاين",
+  "short_name": "GreenLabSoft",
+  "description": "نظام إدارة المختبرات الطبية والتحاليل والأشعة، يعمل أوفلاين بالكامل بدون إنترنت ومتعدد الأجهزة على الشبكة المحلية.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#047857",
+  "background_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
